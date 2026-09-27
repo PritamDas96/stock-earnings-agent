@@ -10,6 +10,7 @@ Run with:  streamlit run app/main.py
 
 from __future__ import annotations
 
+import os
 import sys
 import tempfile
 from pathlib import Path
@@ -23,6 +24,27 @@ from core import get_settings  # noqa: E402
 from mcp_server import tools  # noqa: E402
 
 st.set_page_config(page_title="Stock Earnings Agent", page_icon="📈", layout="wide")
+
+
+def _bootstrap_secrets() -> None:
+    """Mirror Streamlit Cloud secrets into environment variables.
+
+    On Streamlit Community Cloud there is no ``.env`` file; credentials are
+    provided through the app's Secrets manager. Our configuration layer
+    (``core.config``) reads ``os.environ``, so we copy any top-level secrets
+    into the environment before settings are loaded. This keeps local (.env)
+    and cloud (Secrets) deployments working from the same code.
+    """
+    try:
+        secrets = dict(st.secrets)
+    except Exception:  # noqa: BLE001 - no secrets file locally is fine
+        return
+    for key, value in secrets.items():
+        if isinstance(value, (str, int, float, bool)) and key not in os.environ:
+            os.environ[key] = str(value)
+
+
+_bootstrap_secrets()
 
 
 @st.cache_resource(show_spinner=False)
@@ -96,8 +118,12 @@ def _check_config() -> bool:
         return True
     except Exception as exc:  # noqa: BLE001
         st.error(
-            "Configuration error — check your `.env` file for GROQ_API_KEY and "
-            f"GOOGLE_API_KEY.\n\n```\n{exc}\n```"
+            "Configuration error. GROQ_API_KEY and GOOGLE_API_KEY are not set.\n\n"
+            "- Local: add them to a `.env` file in the project root.\n"
+            "- Streamlit Cloud: open **Manage app**, then **Settings**, then "
+            "**Secrets**, and add them in TOML format, for example:\n\n"
+            '```toml\nGROQ_API_KEY = "your_key"\nGOOGLE_API_KEY = "your_key"\n```\n\n'
+            f"Details:\n```\n{exc}\n```"
         )
         return False
 

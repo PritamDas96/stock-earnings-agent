@@ -1,0 +1,28 @@
+The average corporate annual report has more than doubled in length since the 1990s. Many 10-K filings now run past 49,000 words, and no analyst can read them all.
+
+SEC EDGAR alone processes about 4,700 filings every day and already holds more than 36 million documents. The data is public and free. The hard part is finding the signal buried inside it.
+
+So I built Stock Earnings Agent: an AI research assistant that reads the numbers and the narrative together, then answers in plain language with its sources shown.
+
+What it does
+- Pulls live fundamentals, prices, valuation ratios and analyst views for any listed company
+- Retrieves the exact passages from earnings documents and filings that matter, using retrieval augmented generation
+- Reasons over both with a tool-calling agent, and cites what it used
+
+How it is built
+- Retrieval: document parsing, chunking, Google Gemini embeddings, ChromaDB
+- Reasoning: a LangGraph ReAct agent running on Groq
+- Access: a Streamlit app and a Model Context Protocol server that share one tested tool layer
+- Built to standard: typed configuration, logging, unit and integration tests, and a Docker image
+
+The outcome: work that used to mean an afternoon of cross-referencing spreadsheets and filings becomes one question and one grounded answer.
+
+Try the live demo: [ PASTE STREAMLIT LINK HERE ]
+Read the full technical write-up: [ PASTE PROJECT DOCUMENT LINK HERE ]
+Explore the code: github.com/PritamDas96/stock-earnings-agent
+
+If you work in fintech, retrieval augmented generation, or agentic systems, I would value your feedback. What should it learn to answer next?
+
+Data: SEC (About EDGAR); 10-K length trends via Columbia Law School CLS Blue Sky Blog.
+
+#ArtificialIntelligence #RAG #LLM #Fintech #Python #LangGraph #MachineLearning #DataScience
