@@ -1,0 +1,39 @@
+# Runtime dependencies for stock-earnings-agent.
+# NOTE: sentence-transformers / PyTorch are intentionally NOT used — they are
+# DLL-incompatible with Python 3.13 on Windows. Embeddings use the Google
+# Generative Language REST API directly (see rag_pipeline/embeddings.py).
+
+# --- MCP server ---
+mcp[cli]>=1.0.0
+fastmcp>=0.9.0
+
+# --- Data sources ---
+yfinance>=0.2.40
+httpx>=0.27.0
+requests>=2.31.0
+pdfplumber>=0.11.0
+
+# --- RAG / vector store ---
+chromadb>=0.5.0
+langchain-text-splitters>=0.3.0
+
+# --- Agent / LLM ---
+langchain>=0.3.0
+langchain-core>=0.3.0
+langchain-groq>=0.2.0
+langgraph>=0.2.0
+groq>=0.9.0
+
+# --- UI ---
+streamlit>=1.40.0
+
+# --- Evaluation ---
+ragas>=0.2.0
+datasets>=3.0.0
+
+# --- Foundation ---
+pydantic>=2.0.0
+pydantic-settings>=2.0.0
+python-dotenv>=1.0.0
+loguru>=0.7.0
+tenacity>=8.0.0

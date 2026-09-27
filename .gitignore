@@ -1,0 +1,29 @@
+# --- Secrets ---
+.env
+
+# --- Python ---
+venv/
+.venv/
+__pycache__/
+*.pyc
+*.pyo
+*.egg-info/
+dist/
+build/
+
+# --- Testing / linting caches ---
+.pytest_cache/
+.ruff_cache/
+.coverage
+htmlcov/
+
+# --- Vector store (local persistence) ---
+chroma_db/
+.chroma/
+
+# --- Editor / tooling local settings ---
+.claude/settings.local.json
+
+# --- Misc ---
+*.log
+.DS_Store
