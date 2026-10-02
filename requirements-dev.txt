@@ -4,10 +4,3 @@ pytest>=8.0.0
 pytest-cov>=5.0.0
 pytest-mock>=3.14.0
 ruff>=0.6.0
-
-# --- Docs tooling (screenshots, PDF and Word generation) ---
-# Used by scripts/capture_screenshots.py, build_pdf.py and build_linkedin_docx.py.
-# Playwright also needs a one-time browser install:  python -m playwright install chromium
-playwright>=1.47.0
-markdown>=3.7
-python-docx>=1.1.0

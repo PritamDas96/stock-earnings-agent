@@ -8,7 +8,12 @@ mcp[cli]>=1.0.0
 fastmcp>=0.9.0
 
 # --- Data sources ---
-yfinance>=0.2.40
+# Pin yfinance: redeploys otherwise pull newer majors whose Yahoo scraping
+# behaviour changes and more readily hits rate limits on shared cloud IPs.
+yfinance==1.4.1
+# Browser-impersonating HTTP client used to reduce Yahoo blocking cloud IPs
+# (see mcp_server/tools/financials.py). Pulled in by yfinance; pinned floor.
+curl_cffi>=0.7.0
 httpx>=0.27.0
 requests>=2.31.0
 pdfplumber>=0.11.0

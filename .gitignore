@@ -23,7 +23,7 @@ chroma_db/
 .chroma/
 
 # --- Editor / tooling local settings ---
-.claude/settings.local.json
+.claude/
 
 # --- Misc ---
 *.log

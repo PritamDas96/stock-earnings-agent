@@ -89,6 +89,36 @@ def _load_directory() -> tuple[dict[str, str], list[str]]:
     return name_by_ticker, pinned + rest
 
 
+class _SnapshotError(Exception):
+    """Raised when the core snapshot fetch fails, so the error is not cached.
+
+    Streamlit's ``cache_data`` stores return values but not raised exceptions,
+    so signalling failure this way lets the next "Fetch snapshot" click retry
+    instead of serving a stale rate-limit error for the whole TTL.
+    """
+
+
+@st.cache_data(show_spinner=False, ttl=900)
+def _fetch_snapshot(ticker: str, period: str) -> dict:
+    """Fetch all snapshot data for a ticker/period, cached for 15 minutes.
+
+    Yahoo Finance rate-limits shared cloud IPs, so caching keeps repeated views
+    of the same ticker from re-hitting the API. Successful results are cached;
+    a failed core fetch raises :class:`_SnapshotError` and is *not* cached.
+    """
+    financials = tools.get_financials(ticker)
+    if "error" in financials:
+        raise _SnapshotError(financials["error"])
+    return {
+        "financials": financials,
+        "prices": tools.get_price_history(ticker, period),
+        "ratios": tools.calculate_ratios(ticker),
+        "analyst": tools.get_analyst_recommendations(ticker),
+        "series": tools.get_price_series(ticker, period),
+        "fin_hist": tools.get_financials_history(ticker),
+    }
+
+
 def _company_picker(label: str, key: str, default: str = "AAPL", allow_none: bool = False) -> str:
     """Searchable company selector returning a ticker symbol (or "" if none).
 
@@ -141,17 +171,22 @@ def _snapshot_tab() -> None:
         st.warning("Select a company.")
         return
 
-    with st.spinner(f"Fetching data for {ticker}…"):
-        financials = tools.get_financials(ticker)
-        prices = tools.get_price_history(ticker, period)
-        ratios = tools.calculate_ratios(ticker)
-        analyst = tools.get_analyst_recommendations(ticker)
-        series = tools.get_price_series(ticker, period)
-        fin_hist = tools.get_financials_history(ticker)
-
-    if "error" in financials:
-        st.error(financials["error"])
+    try:
+        with st.spinner(f"Fetching data for {ticker}…"):
+            data = _fetch_snapshot(ticker, period)
+    except _SnapshotError as exc:
+        st.error(
+            f"{exc}\n\nYahoo Finance may be rate-limiting this deployment. "
+            "Wait a moment and try again."
+        )
         return
+
+    financials = data["financials"]
+    prices = data["prices"]
+    ratios = data["ratios"]
+    analyst = data["analyst"]
+    series = data["series"]
+    fin_hist = data["fin_hist"]
 
     st.markdown(f"### {financials.get('company_name', ticker)}  \n"
                 f"*{financials.get('sector') or '—'} · {financials.get('industry') or '—'}*")

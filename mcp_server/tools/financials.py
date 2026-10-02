@@ -8,15 +8,80 @@ exactly once.
 
 from __future__ import annotations
 
+import time
 from typing import Any
 
 import yfinance as yf
+
+try:  # optional hardening dep; yfinance pulls it in, but guard anyway
+    from curl_cffi import requests as _curl_requests
+except Exception:  # noqa: BLE001  # pragma: no cover
+    _curl_requests = None
 
 from core import get_logger
 
 log = get_logger("financials")
 
 _VALID_PERIODS = {"1mo", "3mo", "6mo", "1y", "2y", "5y", "max"}
+
+# Number of times to retry an empty ``.info`` payload (Yahoo rate-limits /
+# blocks datacenter IPs such as Streamlit Cloud, returning empty data).
+_INFO_ATTEMPTS = 3
+
+_SESSION: Any = None
+
+
+def _session() -> Any:
+    """Return a browser-impersonating ``curl_cffi`` session (cached).
+
+    Yahoo Finance aggressively rate-limits and blocks shared datacenter IPs
+    (e.g. Streamlit Community Cloud), which makes ``yf.Ticker(...).info`` come
+    back empty and surfaces as "No financial data found". Impersonating a real
+    Chrome client dramatically improves the success rate. Falls back to
+    yfinance's default HTTP client if ``curl_cffi`` is unavailable.
+    """
+    global _SESSION
+    if _SESSION is None:
+        if _curl_requests is None:
+            _SESSION = False
+        else:
+            try:
+                _SESSION = _curl_requests.Session(impersonate="chrome")
+            except Exception as exc:  # noqa: BLE001
+                log.debug("curl_cffi session unavailable: {}", exc)
+                _SESSION = False
+    return _SESSION or None
+
+
+def _ticker(symbol: str) -> yf.Ticker:
+    """Build a ``yf.Ticker`` using the impersonating session when possible."""
+    sess = _session()
+    if sess is not None:
+        try:
+            return yf.Ticker(symbol, session=sess)
+        except Exception as exc:  # noqa: BLE001
+            log.debug("yf.Ticker rejected session, using default: {}", exc)
+    return yf.Ticker(symbol)
+
+
+def _fetch_info(symbol: str) -> dict[str, Any]:
+    """Fetch ``.info`` with retries, since Yahoo often returns empty under load.
+
+    Returns the last payload seen (possibly empty); callers decide whether it
+    is usable.
+    """
+    info: dict[str, Any] = {}
+    for attempt in range(_INFO_ATTEMPTS):
+        try:
+            info = _ticker(symbol).info or {}
+        except Exception as exc:  # noqa: BLE001
+            log.debug("info({}) attempt {} failed: {}", symbol, attempt + 1, exc)
+            info = {}
+        if info.get("longName") or info.get("shortName"):
+            return info
+        if attempt < _INFO_ATTEMPTS - 1:
+            time.sleep(0.5 * (attempt + 1))  # brief backoff before retrying
+    return info
 
 
 def _clean_ticker(ticker: str) -> str:
@@ -37,7 +102,7 @@ def get_financials(ticker: str) -> dict[str, Any]:
     """
     try:
         symbol = _clean_ticker(ticker)
-        info = yf.Ticker(symbol).info
+        info = _fetch_info(symbol)
     except ValueError as exc:
         return {"error": str(exc)}
     except Exception as exc:  # noqa: BLE001 - external library, surface as data
@@ -84,7 +149,7 @@ def get_price_history(ticker: str, period: str = "1y") -> dict[str, Any]:
         return {"error": f"Invalid period {period!r}. Choose from {sorted(_VALID_PERIODS)}"}
 
     try:
-        hist = yf.Ticker(symbol).history(period=period)
+        hist = _ticker(symbol).history(period=period)
     except Exception as exc:  # noqa: BLE001
         log.warning("get_price_history({}) failed: {}", ticker, exc)
         return {"error": f"Failed to fetch price history for {ticker}: {exc}"}
@@ -135,7 +200,7 @@ def get_price_series(ticker: str, period: str = "1y") -> dict[str, Any]:
         return {"error": f"Invalid period {period!r}. Choose from {sorted(_VALID_PERIODS)}"}
 
     try:
-        hist = yf.Ticker(symbol).history(period=period)
+        hist = _ticker(symbol).history(period=period)
     except Exception as exc:  # noqa: BLE001
         log.warning("get_price_series({}) failed: {}", ticker, exc)
         return {"error": f"Failed to fetch price series for {ticker}: {exc}"}
@@ -176,7 +241,7 @@ def get_financials_history(ticker: str, max_periods: int = 8) -> dict[str, Any]:
         return {"error": str(exc)}
 
     try:
-        stmt = yf.Ticker(symbol).quarterly_income_stmt
+        stmt = _ticker(symbol).quarterly_income_stmt
     except Exception as exc:  # noqa: BLE001
         log.warning("get_financials_history({}) failed: {}", ticker, exc)
         return {"error": f"Failed to fetch financial history for {ticker}: {exc}"}
@@ -246,7 +311,7 @@ def calculate_ratios(ticker: str) -> dict[str, Any]:
     """Return valuation and financial-health ratios for a ticker."""
     try:
         symbol = _clean_ticker(ticker)
-        info = yf.Ticker(symbol).info
+        info = _fetch_info(symbol)
     except ValueError as exc:
         return {"error": str(exc)}
     except Exception as exc:  # noqa: BLE001
@@ -274,8 +339,8 @@ def get_analyst_recommendations(ticker: str) -> dict[str, Any]:
     """Return analyst consensus rating, price targets and recent actions."""
     try:
         symbol = _clean_ticker(ticker)
-        stock = yf.Ticker(symbol)
-        info = stock.info
+        stock = _ticker(symbol)
+        info = _fetch_info(symbol)
     except ValueError as exc:
         return {"error": str(exc)}
     except Exception as exc:  # noqa: BLE001

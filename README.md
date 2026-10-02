@@ -135,13 +135,6 @@ python -m pytest tests/test_vector_store.py -m integration   # Chroma tests
 > crash. Chroma tests are marked `integration` and run in their own process.
 > `make test-all` runs both.
 
-## Docker
-
-```powershell
-docker build -t stock-earnings-agent .
-docker run --rm -p 8501:8501 --env-file .env stock-earnings-agent
-```
-
 ## Configuration reference
 
 All settings are environment variables (see `.env.example`). Notable ones:
