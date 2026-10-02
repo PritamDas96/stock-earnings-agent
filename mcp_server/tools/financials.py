@@ -19,6 +19,7 @@ except Exception:  # noqa: BLE001  # pragma: no cover
     _curl_requests = None
 
 from core import get_logger
+from mcp_server.tools import fmp
 
 log = get_logger("financials")
 
@@ -84,6 +85,21 @@ def _fetch_info(symbol: str) -> dict[str, Any]:
     return info
 
 
+def _fmp(fn_name: str, symbol: str, *args: Any) -> dict[str, Any] | None:
+    """Call the matching FMP fallback function, returning None if unavailable.
+
+    FMP is a keyed API that is not IP-blocked like Yahoo scraping, so it backs
+    up yfinance when the latter returns nothing (typically on cloud IPs).
+    """
+    if not fmp.available():
+        return None
+    try:
+        return getattr(fmp, fn_name)(symbol, *args)
+    except Exception as exc:  # noqa: BLE001 - fallback must never raise
+        log.warning("FMP fallback {}({}) failed: {}", fn_name, symbol, exc)
+        return None
+
+
 def _clean_ticker(ticker: str) -> str:
     cleaned = (ticker or "").strip().upper()
     if not cleaned or not cleaned.replace(".", "").replace("-", "").isalnum():
@@ -102,14 +118,15 @@ def get_financials(ticker: str) -> dict[str, Any]:
     """
     try:
         symbol = _clean_ticker(ticker)
-        info = _fetch_info(symbol)
     except ValueError as exc:
         return {"error": str(exc)}
-    except Exception as exc:  # noqa: BLE001 - external library, surface as data
-        log.warning("get_financials({}) failed: {}", ticker, exc)
-        return {"error": f"Failed to fetch financials for {ticker}: {exc}"}
 
+    info = _fetch_info(symbol)
     if not info or info.get("longName") is None and info.get("shortName") is None:
+        # yfinance blocked/empty (common on cloud IPs) — try the keyed FMP API.
+        fallback = _fmp("get_financials", symbol)
+        if fallback:
+            return fallback
         return {"error": f"No financial data found for {ticker}"}
 
     return {
@@ -152,9 +169,12 @@ def get_price_history(ticker: str, period: str = "1y") -> dict[str, Any]:
         hist = _ticker(symbol).history(period=period)
     except Exception as exc:  # noqa: BLE001
         log.warning("get_price_history({}) failed: {}", ticker, exc)
-        return {"error": f"Failed to fetch price history for {ticker}: {exc}"}
+        hist = None
 
-    if hist.empty:
+    if hist is None or hist.empty:
+        fallback = _fmp("get_price_history", symbol, period)
+        if fallback:
+            return fallback
         return {"error": f"No price data found for {ticker}"}
 
     current_price = round(float(hist["Close"].iloc[-1]), 2)
@@ -203,9 +223,12 @@ def get_price_series(ticker: str, period: str = "1y") -> dict[str, Any]:
         hist = _ticker(symbol).history(period=period)
     except Exception as exc:  # noqa: BLE001
         log.warning("get_price_series({}) failed: {}", ticker, exc)
-        return {"error": f"Failed to fetch price series for {ticker}: {exc}"}
+        hist = None
 
-    if hist.empty:
+    if hist is None or hist.empty:
+        fallback = _fmp("get_price_series", symbol, period)
+        if fallback:
+            return fallback
         return {"error": f"No price data found for {ticker}"}
 
     return {
@@ -244,9 +267,12 @@ def get_financials_history(ticker: str, max_periods: int = 8) -> dict[str, Any]:
         stmt = _ticker(symbol).quarterly_income_stmt
     except Exception as exc:  # noqa: BLE001
         log.warning("get_financials_history({}) failed: {}", ticker, exc)
-        return {"error": f"Failed to fetch financial history for {ticker}: {exc}"}
+        stmt = None
 
     if stmt is None or stmt.empty:
+        fallback = _fmp("get_financials_history", symbol, max_periods)
+        if fallback:
+            return fallback
         return {"error": f"No quarterly financial history found for {ticker}"}
 
     def _row(*labels: str):
@@ -311,15 +337,16 @@ def calculate_ratios(ticker: str) -> dict[str, Any]:
     """Return valuation and financial-health ratios for a ticker."""
     try:
         symbol = _clean_ticker(ticker)
-        info = _fetch_info(symbol)
     except ValueError as exc:
         return {"error": str(exc)}
-    except Exception as exc:  # noqa: BLE001
-        log.warning("calculate_ratios({}) failed: {}", ticker, exc)
-        return {"error": f"Failed to fetch ratios for {ticker}: {exc}"}
 
-    if not info:
-        return {"error": f"No data found for {ticker}"}
+    info = _fetch_info(symbol)
+    if not info or info.get("longName") is None and info.get("shortName") is None:
+        fallback = _fmp("calculate_ratios", symbol)
+        if fallback:
+            return fallback
+        if not info:
+            return {"error": f"No data found for {ticker}"}
 
     return {
         "ticker": symbol,
@@ -339,14 +366,17 @@ def get_analyst_recommendations(ticker: str) -> dict[str, Any]:
     """Return analyst consensus rating, price targets and recent actions."""
     try:
         symbol = _clean_ticker(ticker)
-        stock = _ticker(symbol)
-        info = _fetch_info(symbol)
     except ValueError as exc:
         return {"error": str(exc)}
-    except Exception as exc:  # noqa: BLE001
-        log.warning("get_analyst_recommendations({}) failed: {}", ticker, exc)
-        return {"error": f"Failed to fetch recommendations for {ticker}: {exc}"}
 
+    info = _fetch_info(symbol)
+    if not info or info.get("longName") is None and info.get("shortName") is None:
+        fallback = _fmp("get_analyst_recommendations", symbol)
+        if fallback:
+            return fallback
+        # else fall through — the dict below degrades to None fields in the UI.
+
+    stock = _ticker(symbol)
     recommendations: dict[str, Any] = {
         "ticker": symbol,
         "analyst_rating": info.get("recommendationKey"),

@@ -39,6 +39,16 @@ class Settings(BaseSettings):
         ..., description="API key for Google Generative Language (embeddings)."
     )
 
+    # --- Credentials (optional) ------------------------------------------
+    fmp_api_key: str | None = Field(
+        None,
+        description=(
+            "Financial Modeling Prep API key. Optional fallback data provider "
+            "used when yfinance is blocked (e.g. Yahoo rate-limiting shared "
+            "cloud IPs on Streamlit Cloud)."
+        ),
+    )
+
     # --- Large language model --------------------------------------------
     groq_model: str = Field(
         "qwen/qwen3.8-27b",
