@@ -1,28 +1,34 @@
-The average corporate annual report has more than doubled in length since the 1990s. Many 10-K filings now run past 49,000 words, and no analyst can read them all.
+Annual reports have more than doubled in length since the 1990s. A single 10-K can now run past 49,000 words — and SEC EDGAR adds about 4,700 new filings every day.
 
-SEC EDGAR alone processes about 4,700 filings every day and already holds more than 36 million documents. The data is public and free. The hard part is finding the signal buried inside it.
+The data is public and free. The hard part is finding the signal buried inside it.
 
-So I built Stock Earnings Agent: an AI research assistant that reads the numbers and the narrative together, then answers in plain language with its sources shown.
+So I built Stock Earnings Agent — an AI research assistant that reads the numbers and the narrative together, then answers in plain language with its sources shown.
 
-What it does
-- Pulls live fundamentals, prices, valuation ratios and analyst views for any listed company
-- Retrieves the exact passages from earnings documents and filings that matter, using retrieval augmented generation
-- Reasons over both with a tool-calling agent, and cites what it used
+And it just got a major visual upgrade.
 
-How it is built
-- Retrieval: document parsing, chunking, Google Gemini embeddings, ChromaDB
-- Reasoning: a LangGraph ReAct agent running on Groq
-- Access: a Streamlit app and a Model Context Protocol server that share one tested tool layer
-- Built to standard: typed configuration, logging, unit and integration tests, and a Docker image
+Every company now opens as a clean, interactive dashboard instead of a wall of tables — the way a professional equity platform presents a stock:
 
-The outcome: work that used to mean an afternoon of cross-referencing spreadsheets and filings becomes one question and one grounded answer.
+📈 Candlestick price + volume — trend, volatility and conviction at a glance
+💰 Revenue, net income & margins — is growth actually turning into profit?
+🎯 Analyst price targets — the consensus range and implied upside vs today's price
+⚖️ Valuation multiples — P/E, forward P/E, PEG, P/B, P/S and EV/EBITDA side by side
+🧭 Financial-health radar — profitability, returns, growth, liquidity and leverage in one shape
+⏱️ KPI gauges — the three headline numbers, executive-style
 
-Try the live demo: [ PASTE STREAMLIT LINK HERE ]
-Read the full technical write-up: [ PASTE PROJECT DOCUMENT LINK HERE ]
-Explore the code: github.com/PritamDas96/stock-earnings-agent
+Under the hood:
+• Retrieval — document parsing, chunking, Google Gemini embeddings, ChromaDB
+• Reasoning — a LangGraph ReAct agent running on Groq
+• Access — a Streamlit app and a Model Context Protocol server that share one tested tool layer
+• Built to standard — typed configuration, logging, unit and integration tests, and a Docker image
+
+The outcome: work that used to mean an afternoon of cross-referencing spreadsheets and filings becomes one question and one grounded, visual answer.
+
+🔗 Try the live demo: https://stock-earnings-agent.streamlit.app/
+📄 Read the full technical write-up: [ PASTE PROJECT DOCUMENT LINK HERE ]
+💻 Explore the code: github.com/PritamDas96/stock-earnings-agent
 
 If you work in fintech, retrieval augmented generation, or agentic systems, I would value your feedback. What should it learn to answer next?
 
 Data: SEC (About EDGAR); 10-K length trends via Columbia Law School CLS Blue Sky Blog.
 
-#ArtificialIntelligence #RAG #LLM #Fintech #Python #LangGraph #MachineLearning #DataScience
+#ArtificialIntelligence #RAG #LLM #Fintech #Python #LangGraph #DataVisualization #MachineLearning #DataScience

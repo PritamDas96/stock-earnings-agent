@@ -282,22 +282,103 @@ the loop repeats until the model can produce a final grounded answer.
 ### 9.1 Quantitative snapshot
 
 The snapshot tab retrieves fundamentals, price performance, valuation ratios and
-the analyst consensus for a ticker in a single view.
+the analyst consensus for a ticker, then renders them as an interactive, visual
+dashboard: headline metric cards, speedometer gauges and six finance charts, with
+the exact figures preserved in a collapsible table.
 
 ![Snapshot input](assets/01_snapshot_input.png)
 
-The result for a sample ticker is shown below.
+The full result for a sample ticker is shown below.
 
 ![Snapshot output](assets/02_snapshot_output.png)
 
-### 9.2 Ask the analyst
+### 9.2 Visual analytics
+
+The snapshot is visual first, following the conventions professional equity
+platforms use: a clean layout, consistent colour coding (green favourable, red
+unfavourable, blue accent, grey context), hover interactivity and generous
+whitespace. The charts are built with Plotly and render directly in the web app.
+Each one answers a specific analytical question.
+
+#### Headline KPI gauges
+
+![Headline KPI gauges](assets/10_chart_kpi_gauges.png)
+
+**What it shows.** The three numbers that frame a first look — P/E (TTM), profit
+margin and return on equity — each on a speedometer with coloured comfort bands.
+The scale auto-expands for outliers (for example a return on equity near 150%) so
+the needle never saturates at the end of the dial.
+
+**Where it is used.** An executive-style read: is the stock cheap or expensive,
+and is the business profitable and efficient, in one glance.
+
+#### Price and volume
+
+![Price and volume](assets/11_chart_price_volume.png)
+
+**What it shows.** A candlestick of daily open, high, low and close over the
+selected period, with a volume sub-panel coloured by up and down days. The title
+carries the period return. Candlesticks convey trend, volatility and the balance
+of buyers and sellers that a single closing-price line hides.
+
+**Where it is used.** Reading momentum and spotting the days where price moved on
+unusually heavy volume.
+
+#### Revenue, net income and margins
+
+![Revenue, net income and margins](assets/12_chart_fundamentals_trend.png)
+
+**What it shows.** Quarterly revenue and net income as grouped bars, with gross,
+operating and net margin lines on a second axis. Plotting the absolute dollars
+beside the margin percentages reveals whether growth is actually translating into
+profit — widely regarded as the single most useful view in fundamental analysis.
+
+**Where it is used.** The core fundamental read: is the company scaling
+efficiently, and are margins expanding or compressing over time.
+
+#### Analyst price targets
+
+![Analyst price targets](assets/13_chart_analyst_targets.png)
+
+**What it shows.** The low, mean and high analyst price targets plotted as a range
+against the current price, annotated with the implied upside or downside to the
+mean. The spread between low and high captures how much analysts disagree.
+
+**Where it is used.** A one-glance sense of the market's expected range and where
+today's price sits within it.
+
+#### Valuation multiples
+
+![Valuation multiples](assets/14_chart_valuation_multiples.png)
+
+**What it shows.** The standard valuation lenses side by side — P/E, forward P/E,
+PEG, price-to-book, price-to-sales and EV/EBITDA — as horizontal bars. Seeing them
+together tells a more complete story than any single multiple.
+
+**Where it is used.** Judging how richly the company is priced and flagging
+multiples that look stretched relative to the rest.
+
+#### Financial-health profile
+
+![Financial-health profile](assets/15_chart_health_radar.png)
+
+**What it shows.** Five dimensions — profitability, returns, growth, liquidity and
+low leverage — each normalised to a 0 to 100 score so they share one scale. The
+shape of the polygon is a quick fingerprint of where the company is strong and
+where it is weak. The scores are deliberately heuristic; the value is in the
+balance the shape communicates, not a precise benchmark.
+
+**Where it is used.** A fast, holistic health check before drilling into any one
+metric.
+
+### 9.3 Ask the analyst
 
 The analyst tab sends the question to the reasoning agent, which calls the tools
 it needs and returns a concise, grounded answer.
 
 ![Analyst answer](assets/04_analyst_output.png)
 
-### 9.3 Ingest documents
+### 9.4 Ingest documents
 
 The ingestion tab accepts PDF, text and markdown files, optionally tags them with
 a ticker, and adds them to the searchable library.
@@ -378,8 +459,13 @@ container and cloud deployment.
 
 ## 14. Future Work
 
-- Add charting and historical trend visualisation to the snapshot view.
-- Support peer and sector comparison across multiple tickers.
+- **Delivered:** charting and historical trend visualisation in the snapshot view
+  (candlestick price, quarterly fundamentals and margins, analyst target range,
+  valuation multiples, financial-health radar and KPI gauges — see section 9.2).
+- Support peer and sector comparison across multiple tickers (treemap and
+  scatter views).
+- Add earnings-surprise (actual versus estimated EPS) and analyst rating-trend
+  charts.
 - Add scheduled ingestion of new filings as they are published.
 - Extend the evaluation set and track metrics over time.
 

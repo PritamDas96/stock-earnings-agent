@@ -10,13 +10,17 @@ from mcp_server.tools.financials import (
     calculate_ratios,
     get_analyst_recommendations,
     get_financials,
+    get_financials_history,
     get_price_history,
+    get_price_series,
 )
 from mcp_server.tools.rag import search_earnings_documents
 
 __all__ = [
     "get_financials",
     "get_price_history",
+    "get_price_series",
+    "get_financials_history",
     "calculate_ratios",
     "get_analyst_recommendations",
     "fetch_sec_filing",

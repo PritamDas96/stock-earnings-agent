@@ -110,6 +110,138 @@ def get_price_history(ticker: str, period: str = "1y") -> dict[str, Any]:
     }
 
 
+def get_price_series(ticker: str, period: str = "1y") -> dict[str, Any]:
+    """Return the raw OHLCV time-series for charting (candlestick + volume).
+
+    Unlike :func:`get_price_history`, which returns scalar aggregates for the
+    agent/LLM, this returns the full daily arrays and is intended for the UI
+    only (it is deliberately *not* registered as an agent/MCP tool to avoid
+    flooding the model's context with hundreds of data points).
+
+    Args:
+        ticker: Stock ticker symbol.
+        period: One of ``1mo, 3mo, 6mo, 1y, 2y, 5y, max``.
+
+    Returns:
+        ``{ticker, period, dates, open, high, low, close, volume}`` where each
+        series is a list, or ``{"error": ...}`` on failure.
+    """
+    try:
+        symbol = _clean_ticker(ticker)
+    except ValueError as exc:
+        return {"error": str(exc)}
+
+    if period not in _VALID_PERIODS:
+        return {"error": f"Invalid period {period!r}. Choose from {sorted(_VALID_PERIODS)}"}
+
+    try:
+        hist = yf.Ticker(symbol).history(period=period)
+    except Exception as exc:  # noqa: BLE001
+        log.warning("get_price_series({}) failed: {}", ticker, exc)
+        return {"error": f"Failed to fetch price series for {ticker}: {exc}"}
+
+    if hist.empty:
+        return {"error": f"No price data found for {ticker}"}
+
+    return {
+        "ticker": symbol,
+        "period": period,
+        "dates": [d.strftime("%Y-%m-%d") for d in hist.index],
+        "open": [round(float(v), 2) for v in hist["Open"]],
+        "high": [round(float(v), 2) for v in hist["High"]],
+        "low": [round(float(v), 2) for v in hist["Low"]],
+        "close": [round(float(v), 2) for v in hist["Close"]],
+        "volume": [int(v) for v in hist["Volume"]],
+    }
+
+
+def get_financials_history(ticker: str, max_periods: int = 8) -> dict[str, Any]:
+    """Return a quarterly income-statement trend for charting fundamentals.
+
+    Pulls revenue, net income and derived margins from yfinance's quarterly
+    income statement, oldest period first so it plots left-to-right. UI-only
+    (not an agent/MCP tool) — the agent uses the scalar :func:`get_financials`.
+
+    Args:
+        ticker: Stock ticker symbol.
+        max_periods: Most recent N quarters to return (chronological order).
+
+    Returns:
+        ``{ticker, periods, revenue, net_income, gross_margin,
+        operating_margin, net_margin}`` or ``{"error": ...}`` on failure.
+    """
+    try:
+        symbol = _clean_ticker(ticker)
+    except ValueError as exc:
+        return {"error": str(exc)}
+
+    try:
+        stmt = yf.Ticker(symbol).quarterly_income_stmt
+    except Exception as exc:  # noqa: BLE001
+        log.warning("get_financials_history({}) failed: {}", ticker, exc)
+        return {"error": f"Failed to fetch financial history for {ticker}: {exc}"}
+
+    if stmt is None or stmt.empty:
+        return {"error": f"No quarterly financial history found for {ticker}"}
+
+    def _row(*labels: str):
+        """First matching income-statement row as a label->value lookup by column."""
+        for label in labels:
+            if label in stmt.index:
+                return stmt.loc[label]
+        return None
+
+    revenue_row = _row("Total Revenue", "Operating Revenue")
+    net_income_row = _row("Net Income", "Net Income Common Stockholders")
+    gross_row = _row("Gross Profit")
+    operating_row = _row("Operating Income", "Total Operating Income As Reported")
+
+    if revenue_row is None:
+        return {"error": f"No revenue line item found for {ticker}"}
+
+    # Columns are period-end timestamps, newest first; chart oldest -> newest.
+    columns = list(revenue_row.index)[::-1][-max_periods:]
+
+    def _val(row, col):
+        if row is None or col not in row.index:
+            return None
+        v = row[col]
+        try:
+            f = float(v)
+        except (TypeError, ValueError):
+            return None
+        return None if f != f else f  # drop NaN
+
+    def _margin(numer, denom):
+        if numer is None or denom in (None, 0):
+            return None
+        return round(numer / denom * 100, 2)
+
+    periods, revenue, net_income = [], [], []
+    gross_margin, operating_margin, net_margin = [], [], []
+    for col in columns:
+        rev = _val(revenue_row, col)
+        ni = _val(net_income_row, col)
+        gross = _val(gross_row, col)
+        op = _val(operating_row, col)
+        periods.append(col.strftime("%Y-%m") if hasattr(col, "strftime") else str(col))
+        revenue.append(rev)
+        net_income.append(ni)
+        gross_margin.append(_margin(gross, rev))
+        operating_margin.append(_margin(op, rev))
+        net_margin.append(_margin(ni, rev))
+
+    return {
+        "ticker": symbol,
+        "periods": periods,
+        "revenue": revenue,
+        "net_income": net_income,
+        "gross_margin": gross_margin,
+        "operating_margin": operating_margin,
+        "net_margin": net_margin,
+    }
+
+
 def calculate_ratios(ticker: str) -> dict[str, Any]:
     """Return valuation and financial-health ratios for a ticker."""
     try:

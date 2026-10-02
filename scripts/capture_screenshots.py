@@ -45,10 +45,35 @@ def main() -> None:
             page.get_by_role("button", name="Fetch snapshot").click()
             page.wait_for_selector("text=Apple Inc.", timeout=45000)
             _settle(page, 2)
+        except Exception as exc:
+            print(f"snapshot fetch failed: {exc}")
+
+        # 2b) Full snapshot + individual chart close-ups for the documentation.
+        #     Captured only AFTER every Plotly chart has rendered, so the
+        #     metric cards and charts are fully drawn (not skeleton loaders).
+        #     Chart DOM order: gauges, price+volume, fundamentals, targets,
+        #     valuation, radar.
+        try:
+            page.wait_for_selector(".js-plotly-plot", timeout=45000)
+            _settle(page, 4)
             page.screenshot(path=str(OUT / "02_snapshot_output.png"), full_page=True)
             print("saved 02_snapshot_output.png")
+            chart_names = [
+                "10_chart_kpi_gauges.png",
+                "11_chart_price_volume.png",
+                "12_chart_fundamentals_trend.png",
+                "13_chart_analyst_targets.png",
+                "14_chart_valuation_multiples.png",
+                "15_chart_health_radar.png",
+            ]
+            charts = page.locator(".js-plotly-plot")
+            count = charts.count()
+            for i, name in enumerate(chart_names):
+                if i < count:
+                    charts.nth(i).screenshot(path=str(OUT / name))
+                    print(f"saved {name}")
         except Exception as exc:
-            print(f"snapshot output capture failed: {exc}")
+            print(f"chart capture failed: {exc}")
 
         # 3) Ask the analyst tab + a completed answer.
         try:

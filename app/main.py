@@ -20,6 +20,7 @@ import streamlit as st
 # Ensure the project root is importable when Streamlit runs this file directly.
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
+from app import charts  # noqa: E402
 from core import get_settings  # noqa: E402
 from mcp_server import tools  # noqa: E402
 
@@ -145,6 +146,8 @@ def _snapshot_tab() -> None:
         prices = tools.get_price_history(ticker, period)
         ratios = tools.calculate_ratios(ticker)
         analyst = tools.get_analyst_recommendations(ticker)
+        series = tools.get_price_series(ticker, period)
+        fin_hist = tools.get_financials_history(ticker)
 
     if "error" in financials:
         st.error(financials["error"])
@@ -153,6 +156,7 @@ def _snapshot_tab() -> None:
     st.markdown(f"### {financials.get('company_name', ticker)}  \n"
                 f"*{financials.get('sector') or '—'} · {financials.get('industry') or '—'}*")
 
+    # --- Headline metrics -------------------------------------------------
     c1, c2, c3, c4 = st.columns(4)
     c1.metric("Market cap", _human(financials.get("market_cap")))
     c2.metric("P/E (TTM)", _fmt(financials.get("pe_ratio")))
@@ -166,23 +170,71 @@ def _snapshot_tab() -> None:
         c3.metric(f"{period} low", f"${prices['period_low']}")
         c4.metric("Avg volume", _human(prices["avg_daily_volume"]))
 
+    # --- KPI gauges -------------------------------------------------------
+    gauges = charts.kpi_gauges_figure(financials, ratios)
+    if gauges is not None:
+        st.plotly_chart(gauges, use_container_width=True)
+
+    # --- Price & volume ---------------------------------------------------
+    price_fig = charts.price_figure(series)
+    if price_fig is not None:
+        st.plotly_chart(price_fig, use_container_width=True)
+    else:
+        st.caption("Price chart unavailable for this ticker/period.")
+
+    # --- Fundamentals trend + analyst targets -----------------------------
     left, right = st.columns(2)
     with left:
-        st.markdown("**Valuation ratios**")
-        if "error" not in ratios:
-            st.dataframe(
-                _kv_rows(ratios, skip={"ticker"}),
-                use_container_width=True,
-                hide_index=True,
-            )
+        trend_fig = charts.fundamentals_trend_figure(fin_hist)
+        if trend_fig is not None:
+            st.plotly_chart(trend_fig, use_container_width=True)
+        else:
+            st.caption("Quarterly financial history unavailable.")
     with right:
-        st.markdown("**Analyst view**")
-        if "error" not in analyst:
-            st.dataframe(
-                _kv_rows(analyst, skip={"ticker", "recent_ratings"}),
-                use_container_width=True,
-                hide_index=True,
-            )
+        current_price = prices.get("current_price") if "error" not in prices else None
+        target_fig = charts.analyst_target_figure(analyst, current_price)
+        if target_fig is not None:
+            st.plotly_chart(target_fig, use_container_width=True)
+            rating = (analyst.get("analyst_rating") or "—").replace("_", " ").title()
+            n = analyst.get("number_of_analysts")
+            st.caption(f"Consensus: **{rating}**" + (f" · {n} analysts" if n else ""))
+        else:
+            st.caption("Analyst price targets unavailable.")
+
+    # --- Valuation multiples + health radar -------------------------------
+    left, right = st.columns(2)
+    with left:
+        val_fig = charts.valuation_figure(financials, ratios)
+        if val_fig is not None:
+            st.plotly_chart(val_fig, use_container_width=True)
+        else:
+            st.caption("Valuation multiples unavailable.")
+    with right:
+        radar_fig = charts.health_radar_figure(financials, ratios)
+        if radar_fig is not None:
+            st.plotly_chart(radar_fig, use_container_width=True)
+        else:
+            st.caption("Financial-health profile unavailable.")
+
+    # --- Exact figures (kept available, visual-first by default) ----------
+    with st.expander("Detailed figures (valuation ratios & analyst view)"):
+        left, right = st.columns(2)
+        with left:
+            st.markdown("**Valuation ratios**")
+            if "error" not in ratios:
+                st.dataframe(
+                    _kv_rows(ratios, skip={"ticker"}),
+                    use_container_width=True,
+                    hide_index=True,
+                )
+        with right:
+            st.markdown("**Analyst view**")
+            if "error" not in analyst:
+                st.dataframe(
+                    _kv_rows(analyst, skip={"ticker", "recent_ratings"}),
+                    use_container_width=True,
+                    hide_index=True,
+                )
 
 
 def _agent_tab() -> None:
