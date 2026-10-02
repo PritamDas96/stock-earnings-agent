@@ -13,7 +13,8 @@ authors = [{ name = "Stock Earnings Agent" }]
 dependencies = [
     "mcp[cli]>=1.0.0",
     "fastmcp>=0.9.0",
-    "yfinance>=0.2.40",
+    "yfinance==1.4.1",
+    "curl_cffi>=0.7.0",
     "httpx>=0.27.0",
     "requests>=2.31.0",
     "pdfplumber>=0.11.0",
@@ -69,7 +70,3 @@ ignore = ["B008"]
 
 [tool.ruff.lint.per-file-ignores]
 "tests/*" = ["B011"]
-# Documentation rendering scripts embed HTML/CSS as string literals, where
-# wrapping to the line limit would harm readability.
-"scripts/render_diagrams.py" = ["E501"]
-"scripts/render_terminal.py" = ["E501"]

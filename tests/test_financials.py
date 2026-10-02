@@ -26,6 +26,17 @@ class _FakeTicker:
         return self._recommendations
 
 
+@pytest.fixture(autouse=True)
+def _no_fmp_fallback(monkeypatch):
+    """Keep these unit tests hermetic — never call the real FMP fallback API.
+
+    The FMP fallback activates whenever FMP_API_KEY is configured, which would
+    make the "empty yfinance" tests hit the network. Disable it by default;
+    the dedicated fallback test re-enables a mocked version.
+    """
+    monkeypatch.setattr(financials.fmp, "available", lambda: False)
+
+
 @pytest.mark.parametrize("bad", ["", "  ", "@@@", "12$"])
 def test_invalid_ticker_rejected(bad):
     assert "error" in financials.get_financials(bad)
@@ -46,6 +57,19 @@ def test_get_financials_maps_fields(monkeypatch):
 def test_get_financials_empty_info_errors(monkeypatch):
     monkeypatch.setattr(financials.yf, "Ticker", lambda s: _FakeTicker(info={}))
     assert "error" in financials.get_financials("AAPL")
+
+
+def test_get_financials_falls_back_to_fmp(monkeypatch):
+    # yfinance returns nothing (as when Yahoo blocks a cloud IP) -> use FMP.
+    monkeypatch.setattr(financials.yf, "Ticker", lambda s: _FakeTicker(info={}))
+    monkeypatch.setattr(financials.fmp, "available", lambda: True)
+    monkeypatch.setattr(
+        financials.fmp, "get_financials",
+        lambda symbol: {"ticker": symbol, "company_name": "FMP Co."},
+    )
+    result = financials.get_financials("AAPL")
+    assert result["company_name"] == "FMP Co."
+    assert "error" not in result
 
 
 def test_get_price_history_computes_metrics(monkeypatch):
